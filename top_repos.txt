@@ -1,0 +1,10 @@
+https://github.com/MMMZZZZ/Syntherrupter.git
+https://github.com/Jana-Marie/tesla-midiplayer.git
+https://github.com/JuiceIntelligentSystems/DRSSTC_Interrupter_Firmware.git
+https://github.com/coup-de-foudre/tesla_coil_fm_driver.git
+https://github.com/naman-tanwar/Solid-State-Tesla-Coil.git
+https://github.com/sndnvaps/tesla_calculator.git
+https://github.com/hnaderi/sstc.git
+https://github.com/richie-rk/PyTeslaCoil.git
+https://github.com/hnaderi/teslasynth.git
+https://github.com/AravinthPanch/confusion-sensitive-sculpture.git
