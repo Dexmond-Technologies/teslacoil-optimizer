@@ -1,0 +1,35 @@
+name: ⚡ TeslaForge Continuous Integration
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test-and-lint:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 📥 Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: 🐍 Set up Python 3.12
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+        cache: 'pip'
+
+    - name: 📦 Install Package & Dev Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e core/TeslaForge/.[dev,accel]
+
+    - name: 🔍 Lint & Check Formatting with Ruff
+      run: |
+        ruff check core/TeslaForge/
+        ruff format --check core/TeslaForge/
+
+    - name: 🧪 Run Physics Unit Tests
+      run: |
+        pytest core/TeslaForge/tests/

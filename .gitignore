@@ -5,9 +5,11 @@ __pycache__/
 [Kk]rittr*
 .env
 .venv/
+venv/
+app/backend-python/venv/
 .pytest_cache/
 *.pyc
 reference_repos/
+vendor/
 ask_grok.py
 *.egg-info/
-

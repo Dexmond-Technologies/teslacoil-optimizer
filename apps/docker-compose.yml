@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  python-engine:
+    build:
+      context: ./backend-python
+      dockerfile: Dockerfile
+    container_name: tco-python-engine
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend-python/app:/workspace/app
+    environment:
+      - ENV=development
+    restart: unless-stopped
+    networks:
+      - tco-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: tco-tactical-hud
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend/src:/workspace/src
+      - ./frontend/public:/workspace/public
+    environment:
+      - VITE_API_URL=http://localhost:8000
+    depends_on:
+      - python-engine
+    restart: unless-stopped
+    networks:
+      - tco-network
+
+  integration-gateway:
+    build:
+      context: ./integration-java
+      dockerfile: Dockerfile
+    container_name: tco-java-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=dev
+      - PYTHON_ENGINE_URL=http://python-engine:8000
+    depends_on:
+      - python-engine
+    restart: unless-stopped
+    profiles:
+      - enterprise # Only run this service if explicitly requested via --profile enterprise
+    networks:
+      - tco-network
+
+networks:
+  tco-network:
+    name: tco-network
+    driver: bridge
