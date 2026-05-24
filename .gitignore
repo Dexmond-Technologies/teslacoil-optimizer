@@ -2,3 +2,12 @@ krittr/
 krittr-core/
 node_modules/
 __pycache__/
+[Kk]rittr*
+.env
+.venv/
+.pytest_cache/
+*.pyc
+reference_repos/
+ask_grok.py
+*.egg-info/
+
