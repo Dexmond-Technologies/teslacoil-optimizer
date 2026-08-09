@@ -13,3 +13,7 @@ reference_repos/
 vendor/
 ask_grok.py
 *.egg-info/
+*.class
+*.log
+dist/
+.tmp/

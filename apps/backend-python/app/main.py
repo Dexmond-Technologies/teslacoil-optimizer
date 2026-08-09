@@ -18,6 +18,18 @@ from app.physics import (
 
 app = FastAPI(title="Tesla Coil Optimizer - Physics Engine")
 
+import numpy as np
+from teslaforge.core.physics import (
+    calc_helical_inductance_wheeler,
+    calc_flat_spiral_inductance_wheeler,
+    calc_toroid_capacitance,
+    calc_medhurst_capacitance,
+    calc_resonant_frequency,
+    calc_mutual_inductance_neumann,
+    calc_coupling_coefficient,
+    est_freau_spark_length,
+)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -28,47 +40,70 @@ app.add_middleware(
 
 @app.post("/api/optimize", response_model=OptimizationResult)
 def optimize_coil(input_data: OptimizationInput):
-    # Primary Inductance
-    l_p = calculate_flat_spiral_inductance_uh(
-        input_data.primary_coil.diameter_mm / 2, 
-        (input_data.primary_coil.diameter_mm / 2) + (input_data.primary_coil.turns * 5), # Approx 5mm spacing
+    pri_r_inner = (input_data.primary_coil.diameter_mm / 2.0) / 1000.0
+    pri_r_outer = pri_r_inner + ((input_data.primary_coil.turns * 5.0) / 1000.0)
+    
+    # Primary Inductance (H) & uH
+    l_p_h = calc_flat_spiral_inductance_wheeler(
+        pri_r_inner,
+        pri_r_outer,
         input_data.primary_coil.turns
     )
-    
-    # Secondary Inductance
-    l_s = calculate_helical_inductance_uh(
-        input_data.secondary_coil.diameter_mm / 2,
-        input_data.secondary_coil.height_mm,
+    l_p_uh = l_p_h * 1e6
+
+    # Secondary Inductance (H) & uH
+    sec_r = (input_data.secondary_coil.diameter_mm / 2.0) / 1000.0
+    sec_h = input_data.secondary_coil.height_mm / 1000.0
+    l_s_h = calc_helical_inductance_wheeler(
+        sec_r,
+        sec_h,
         input_data.secondary_coil.turns
     )
-    
-    # Top Load Capacitance
-    c_top = calculate_toroid_capacitance_pf(
-        input_data.top_load.major_diameter_mm,
-        input_data.top_load.minor_diameter_mm
+    l_s_uh = l_s_h * 1e6
+
+    # Top Load Capacitance (F) & pF
+    c_top_f = calc_toroid_capacitance(
+        input_data.top_load.major_diameter_mm / 1000.0,
+        input_data.top_load.minor_diameter_mm / 1000.0
     )
-    
-    # Self-capacitance of secondary (Medhurst formula approx: 0.5 * height in inches)
-    c_self = 0.5 * (input_data.secondary_coil.height_mm / 25.4)
-    c_s_total_pf = c_top + c_self
-    c_s_total_nf = c_s_total_pf / 1000.0
-    
-    # Resonant Frequencies
-    f_p = calculate_resonant_frequency_khz(l_p, input_data.primary_capacitor.capacitance_nf)
-    f_s = calculate_resonant_frequency_khz(l_s, c_s_total_nf)
-    
-    # Power and Spark
-    # Assumes arbitrary current limit if not provided. E.g. Power = V * I. Assuming 30mA for NST
-    power_watts = input_data.power_source.voltage_v * 0.03 
-    spark_len = estimate_spark_length_cm(power_watts)
-    
-    # Efficiency & Safety
-    eff = 100 - abs(f_p - f_s) / max(f_p, 0.1) * 100
-    eff = max(0, min(100, eff))
-    
+    c_top_pf = c_top_f * 1e12
+
+    # Medhurst Self Capacitance of Secondary (F)
+    c_self_f = calc_medhurst_capacitance(sec_r, sec_h)
+    c_s_total_f = c_top_f + c_self_f
+    c_s_total_nf = c_s_total_f * 1e9
+
+    # Resonant Frequencies (Hz -> kHz)
+    c_p_f = input_data.primary_capacitor.capacitance_nf * 1e-9
+    f_p_hz = calc_resonant_frequency(l_p_h, c_p_f)
+    f_s_hz = calc_resonant_frequency(l_s_h, c_s_total_f)
+
+    f_p_khz = f_p_hz / 1000.0
+    f_s_khz = f_s_hz / 1000.0
+
+    # Calculate Neumann Mutual Inductance & Coupling Coefficient k
+    n_pri = max(1, int(input_data.primary_coil.turns))
+    n_sec = max(10, int(input_data.secondary_coil.turns))
+    r_pri_turns = np.linspace(pri_r_inner, pri_r_outer, n_pri)
+    z_pri_turns = np.zeros(n_pri)
+    r_sec_turns = np.full(n_sec, sec_r)
+    z_sec_turns = np.linspace(0.02, sec_h + 0.02, n_sec) # Secondary offset 20mm above primary
+
+    m_h = calc_mutual_inductance_neumann(r_pri_turns, z_pri_turns, r_sec_turns, z_sec_turns)
+    k_calc = calc_coupling_coefficient(m_h, l_p_h, l_s_h)
+
+    # Power and Spark Estimation
+    power_watts = input_data.power_source.voltage_v * 0.03 # Assuming 30mA baseline
+    spark_len_m = est_freau_spark_length(power_watts)
+    spark_len_cm = spark_len_m * 100.0
+
+    # Efficiency & Safety Analysis
+    eff = 100.0 - abs(f_p_khz - f_s_khz) / max(f_p_khz, 0.1) * 100.0
+    eff = max(0.0, min(100.0, eff))
+
     warnings = []
     level = "Green"
-    
+
     if eff < 80:
         level = "Yellow"
         warnings.append("Low efficiency: primary and secondary resonant frequencies are mismatched.")
@@ -82,14 +117,14 @@ def optimize_coil(input_data: OptimizationInput):
         warnings.append("DANGER: Input voltage exceeds typical safe limits for amateur coils.")
 
     return OptimizationResult(
-        primary_resonant_frequency_khz=f_p,
-        secondary_resonant_frequency_khz=f_s,
-        coupling_k=0.15, # Approximation placeholder
-        primary_inductance_uh=l_p,
-        secondary_inductance_uh=l_s,
-        top_load_capacitance_pf=c_top,
+        primary_resonant_frequency_khz=f_p_khz,
+        secondary_resonant_frequency_khz=f_s_khz,
+        coupling_k=round(k_calc, 4) if k_calc > 0 else 0.15,
+        primary_inductance_uh=l_p_uh,
+        secondary_inductance_uh=l_s_uh,
+        top_load_capacitance_pf=c_top_pf,
         efficiency_estimate_pct=eff,
-        estimated_spark_length_cm=spark_len,
+        estimated_spark_length_cm=spark_len_cm,
         safety_profile=SafetyFlags(level=level, warnings=warnings)
     )
 

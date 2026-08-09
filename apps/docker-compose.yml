@@ -3,13 +3,14 @@ version: '3.8'
 services:
   python-engine:
     build:
-      context: ./backend-python
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: apps/backend-python/Dockerfile
     container_name: tco-python-engine
     ports:
       - "8000:8000"
     volumes:
       - ./backend-python/app:/workspace/app
+      - ../core/TeslaForge:/workspace/core/TeslaForge
     environment:
       - ENV=development
     restart: unless-stopped

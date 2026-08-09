@@ -40,12 +40,15 @@ function App() {
   const [isOptimizing, setIsOptimizing] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
 
+  const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+  const WS_BASE = API_BASE.replace(/^http/, 'ws');
+
   const runLiveOptimization = () => {
     if (isOptimizing) return;
     setIsOptimizing(true);
     setTelemetry([]);
 
-    const ws = new WebSocket('ws://localhost:8000/api/ws/optimize');
+    const ws = new WebSocket(`${WS_BASE}/api/ws/optimize`);
     wsRef.current = ws;
     
     ws.onopen = () => {
@@ -84,7 +87,7 @@ function App() {
     const fetchOptimization = async () => {
       setLoading(true);
       try {
-        const response = await fetch('http://localhost:8000/api/optimize', {
+        const response = await fetch(`${API_BASE}/api/optimize`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -370,7 +373,7 @@ function App() {
                 labels: telemetry.map(t => t.trial),
                 datasets: [{
                   label: 'Tuning Mismatch (kHz)',
-                  data: telemetry.map(t => t.tuning_error),
+                  data: telemetry.map(t => Math.max(1e-4, t.tuning_error)),
                   borderColor: '#0ff',
                   backgroundColor: 'rgba(0, 255, 255, 0.2)',
                   borderWidth: 2,

@@ -9,11 +9,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Optimize layer caching for dependencies
-COPY requirements.txt .
+COPY apps/backend-python/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy source
-COPY app/ ./app/
+# Copy and install core physics package
+COPY core/TeslaForge /workspace/core/TeslaForge
+RUN pip install --no-cache-dir -e /workspace/core/TeslaForge
+
+# Copy application source
+COPY apps/backend-python/app/ ./app/
 
 EXPOSE 8000
 

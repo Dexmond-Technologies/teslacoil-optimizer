@@ -66,10 +66,10 @@ GROK_KEY = get_api_key("GROK_API_KEY", ["GROK-API", "XAI_API_KEY"])
 CLAUDE_KEY = get_api_key("CLAUDE_API_KEY", ["CLAUDE_API", "ANTHROPIC_API_KEY"])
 GEMINI_KEY = get_api_key("GEMINI_API_KEY", ["GEMINI_API", "GOOGLE_API_KEY"])
 
-# Model Definitions
-GROK_MODEL = "grok-4.3"
-CLAUDE_MODEL = "claude-sonnet-4-6"
-GEMINI_MODEL = "gemini-3.5-flash"
+# Model Definitions with fallback environment overrides
+GROK_MODEL = os.getenv("GROK_MODEL", "grok-2-latest")
+CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-3-5-sonnet-20241022")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
 
 # Setup headers and endpoints
 TIMEOUT = 45.0  # 45-second timeout for deep reasoning/generation calls
